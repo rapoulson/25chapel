@@ -1,6 +1,27 @@
+require "yaml"
 require "ostruct"
 
 class Node < OpenStruct
+	def init_with(c)
+		c.map.keys.each do |k|
+			instance_variable_set("@#{k}", c.map[k])
+		end
+
+		@table.keys.each do |k|
+			new_ostruct_member(k)
+		end
+	end
+
+	def self.save(node, file='save.yaml')
+		File.open(file, 'w+') do |f|
+			f.puts node.to_yaml
+		end
+	end
+
+	def self.load(file='save.yaml')
+		YAML::load_file(file)
+	end
+
 	DEFAULTS = {
 		:root => { :open => true },
 		:room => { :open => true },
@@ -8,7 +29,7 @@ class Node < OpenStruct
 		:player => { :open => true }
 	}
 
-	def initialize(parent, tag, defaults={}, &block)
+	def initialize(parent=nil, tag=nil, defaults={}, &block)
 		super()
 		defaults.each {|k, v| send("{k}=", v)}	
 
@@ -64,6 +85,38 @@ class Node < OpenStruct
 		end
 	end
 
+	def described?
+		if respond_to?(:described)
+			self.described
+		else
+			false
+		end
+	end
+
+	def describe
+		base = if !described? && respond_to?(:desc)
+			self.described = true
+			desc
+			elsif respond_to?(:short_desc)
+				short_desc
+			else
+				#Just make something up
+				"You are in #{tag}"
+			end
+
+			#Append presence of children nodes if open
+			if open
+				children.each do |c|
+					base << (c.presence || '')
+				end
+			end
+
+			puts base
+		end
+
+	
+
+
 	def hidden?
 		if parent.tag == :root
 			return false
@@ -71,6 +124,14 @@ class Node < OpenStruct
 			return true
 		else
 			return parent.hidden?
+		end
+	end
+
+	def script(thing, to, check=true)
+		if respond_to?("script_#{key}")
+			return eval(self.send("script_#{key}"))
+		else
+			return true
 		end
 	end
 
@@ -189,7 +250,11 @@ class Player < Node
 		if dest.nil?
 			puts "You can't go that way"
 		else
-			get_root.move(self,dest)
+			dest = get_root.find(dest)
+
+			if dest.script('enter', direction)
+				get_root.move(self, dest)
+			end
 		end
 	end
 
@@ -205,6 +270,12 @@ class Player < Node
 
 	def do_take(*thing)
 		get_root.move(thing.join(' '), self)
+		thing = get_room.find(thing)
+		return if thing.nil?
+
+		if thing.script('take')
+			puts 'Taken.' if get_root.move(thing, self)
+		end
 	end
 	alias_method :do_get, :do_take
 
@@ -265,8 +336,30 @@ class Player < Node
 
 		return if item.nil? || container.nil?
 
-		get_room.move(item, container)
+		if container.script('accept', item)
+			get_room.move(item, container)
+		end
 	end
+
+	def do_use(*words)
+		prepositions = %w{ in on with }
+		prepositions.map!{|p| "#{p}"}
+
+		prep_regex=Regexp.new("(#{prepositions.join(|)})")
+		item1_words, _, item2_words = words.join(' ').split(prep_regex)
+
+		if item2_words.nil?
+			puts "I do not understand"
+			return
+		end
+
+		item1 = get_room.find(item1_words)
+		item2 = get_room.find(item2_words)
+		return if item1.nil? || item2.nil?
+
+		item1.script('use', item2)
+	end
+end
 
 
 	def play
@@ -275,5 +368,27 @@ class Player < Node
 			print "What now? "
 			command(gets.chomp)
 		end
+	end
+end
+
+class String
+	def word_wrap(width=80)
+		#replace newlines with spaces
+		gsub(/\n/, '').
+
+		#Replace double space with single space
+		gsub(/\s+, '').
+
+		#kill leading whitespace
+		gsub(/^\s+/, '').
+
+		#replace punctuation with punctuation plus 2 spaces
+		gsub(?([\.\!\?]+)(\s+)?/, '\1 ').
+
+		#Same thing but commas and one space
+		gsub(/\, (\s+)?/, ', ').
+
+		#string plus newlines
+		gsub(%r[(.{1, #{width}})(?:\s|\z)], "\\1\n")
 	end
 end
