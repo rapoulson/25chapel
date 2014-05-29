@@ -32,7 +32,7 @@ class Node < OpenStruct
 	end
 
 	def player(&block)
-		Player.new(self, :player, Defaults[:player], &block)
+		Player.new(self, :player, DEFAULTS[:player], &block)
 	end
 
 	def self.root(&block)
@@ -55,8 +55,18 @@ class Node < OpenStruct
 		end
 	end
 
+	def ancestors(list=[])
+		if parent.nil?
+			return list
+		else
+			list << parent
+			return parent.ancestors(list)
+		end
+	end
+
 	def hidden?
-		if parent.tag == :rootreturn false
+		if parent.tag == :root
+			return false
 		elsif parent.open == false
 			return true
 		else
@@ -77,6 +87,11 @@ class Node < OpenStruct
 		return if dest.nil?
 		if check && (dest.hidden? || dest.open == false)
 			puts "You can't put that there"
+			return
+		end
+
+		if dest.ancestors.include?(item)
+			puts "Are you trying to destroy the universe"
 			return
 		end
 
@@ -106,7 +121,54 @@ class Node < OpenStruct
 
 		return nil
 	end
-end
+
+	def find_by_string(words)
+		words = words.split unless words.is_a?(Array)
+		nodes = find_by_name(words)
+
+		if nodes.empty?
+			puts "I don't see that here"
+			return nil
+		end
+
+		#Score nodes by matching adjectives
+		nodes.each do |i|
+			i.search_score = (words & i.words).length
+		end
+
+		#Sort highest scores to beginning of list
+		nodes.sort! do |a,b|
+			b.search_score <=> a.search_score
+		end
+
+		#Remove nodes with a search score less than that of the first item
+		nodes.delete_if do |i|
+			i.search_score < nodes.first.search_score
+		end
+
+		#Interpret the results
+		if nodes.length == 1
+			return nodes.first
+		else
+			puts "Which item do you mean?"
+			nodes.each do |i|
+				puts "*#{i.name} (#{i.words.join(', ')})"
+			end
+
+			return nil
+		end
+	end
+
+	def find_by_name(words, nodes=[])
+		words = words.split unless words.is_a?(Array)
+		nodes << self if words.include?(name)
+
+		children.each do |c|
+			c.find_by_name(words, nodes)
+		end
+
+		return nodes
+	end
 end
 
 class Player < Node
@@ -131,9 +193,20 @@ class Player < Node
 		end
 	end
 
+	%w{north south east west up down}.each do|dir|
+		define_method("do_#{dir}") do
+			do_go(dir)
+		end
+
+		define_method("do_#{dir[0]}") do
+			do_go(dir)
+		end
+	end
+
 	def do_take(*thing)
 		get_root.move(thing.join(' '), self)
 	end
+	alias_method :do_get, :do_take
 
 	def do_drop(*thing)
 		move(thing.join(' '), get_room)
@@ -173,6 +246,34 @@ class Player < Node
 			end
 		end
 	end
+	alias_method :do_inv, :do_inventory
+	alias_method :do_i, :do_inventory
 
-	
+	def do_put(*words)
+		prepositions = ['in', 'on']
+
+		prep_regex = Regexp.new("(#{prepositions.join('|')})")
+		item_words, _, cont_words = words.join(' ').split(prep_regex)
+
+		if cont_words.nil?
+			puts "You want to  put that where?"
+			return
+		end
+
+		item = get_room.find(item_words)
+		container = get_room.find(cont_words)
+
+		return if item.nil? || container.nil?
+
+		get_room.move(item, container)
+	end
+
+
+	def play
+		loop do
+			do_look
+			print "What now? "
+			command(gets.chomp)
+		end
+	end
 end

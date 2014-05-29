@@ -1,3 +1,4 @@
+$: << '.'
 require "node"
 
 root = Node.root do 
@@ -18,11 +19,13 @@ root = Node.root do
 		self.exit_south = :living_room
 
 		player do
-			item (:ham_sandwich, 'sandwich, 'ham')
+			item(:ham_sandwich, 'sandwich', 'ham')
 		end
 
 		item(:drawer, 'drawer', 'kitchen') do
-			item(:new_batteries, 'batteries', 'new', 'AA)
+			self.open = true
+
+			item(:new_batteries, 'batteries', 'new', 'AA')
 		end
 	end
 
@@ -30,3 +33,28 @@ root = Node.root do
 		self.exit_west = :living_room
 	end
 end
+
+root.find(:player).tap do|pl|
+	pl.command("go south")
+
+	pl.command("take remote")
+
+	pl.command("take dead mouse")
+
+	pl.command("drop remote")
+
+	pl. command("go north")
+
+	pl.command("take new batteries")
+
+	pl.command("open drawer")
+	pl.command("take new batteries")
+	pl.command("close drawer")
+
+	pl.command("look")
+	pl.command("inventory")
+end
+
+	puts root
+	root.find(:player).play
+
