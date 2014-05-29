@@ -1,3 +1,5 @@
+require "ostruct"
+
 class Node < OpenStruct
 	DEFAULTS = {
 		:root => { :open => true },
@@ -36,5 +38,76 @@ class Node < OpenStruct
 	def self.root(&block)
 		Node.new(nil, :root, &block)
 	end
+
+	def get_room
+		if parent.tag == :root
+			return self
+		else
+			return parent.get_room
+		end
+	end
+
+	def get_root
+		if tag == :root || parent.nil?
+			return self
+		else
+			return parent.get_root
+		end
+	end
+
+	def hidden?
+		if parent.tag == :rootreturn false
+		elsif parent.open == false
+			return true
+		else
+			return parent.hidden?
+		end
+	end
+
+	def move(thing, to, check=true)
+		item = find(thing)
+		dest = find(to)
+
+		return if item.nil?
+		if check && item.hidden
+			puts "You can't get to that right now"
+			return
+		end
+
+		return if dest.nil?
+		if check && (dest.hidden? || dest.open == false)
+			puts "You can't put that there"
+			return
+		end
+
+		item.parent.children.delete(item)
+		dest.children << item
+		item.parent = dest
+	end
+
+	def find(thing)
+		case thing
+		when Symbol
+			find_by_tag(thing)
+		when String
+			find_by_string(thing)
+		when Node
+			thing
+		end
+	end
+
+	def find_by_tag(tag)
+		return self if self.tag == tag
+
+		children.each do |c|
+			res = c.find_by_tag(tag)
+			return res unless res.nil?
+		end
+
+		return nil
+	end
+
+
+
 end
 end
