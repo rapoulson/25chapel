@@ -32,7 +32,7 @@ class Node < OpenStruct
 	end
 
 	def player(&block)
-		Node.new(self, :player, DEFAULTS[:player], &block)
+		Player.new(self, :player, Defaults[:player], &block)
 	end
 
 	def self.root(&block)
@@ -106,8 +106,73 @@ class Node < OpenStruct
 
 		return nil
 	end
-
-
-
 end
+end
+
+class Player < Node
+	def command(words)
+		verb, *words = words.split(' ')
+		verb = "do_#{verb}"
+
+		if respond_to?(verb)
+			send(verb, *words)
+		else
+			puts "I don't know how to do that"
+		end
+	end
+
+	def do_go(direction, *a)
+		dest = get_room.send("exit_#{direction}")
+
+		if dest.nil?
+			puts "You can't go that way"
+		else
+			get_root.move(self,dest)
+		end
+	end
+
+	def do_take(*thing)
+		get_root.move(thing.join(' '), self)
+	end
+
+	def do_drop(*thing)
+		move(thing.join(' '), get_room)
+	end
+
+	def open_close(thing, state)
+		container = get_room.find(thing)
+		return if container.nil?
+
+		if container.open == state
+			puts "It's already #{state ? 'open' : 'closed'}"
+		else
+			container.open = state
+		end
+	end
+
+	def do_open(*thing)
+		open_close(thing, true)
+	end
+
+	def do_close(*thing)
+		open_close(thing,false)
+	end
+
+	def do_look(*a)
+		puts "You are in #{get_room.tag}"
+	end
+
+	def do_inventory(*a)
+		puts "You are carrying:"
+
+		if children.empty?
+			puts " * Nothing"
+		else
+			children.each do|c|
+				puts "* #{c.name} (#{c.words.join(' ')})"
+			end
+		end
+	end
+
+	
 end
