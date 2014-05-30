@@ -22,6 +22,10 @@ class Node < OpenStruct
 		YAML::load_file(file)
 	end
 
+	def puts(*s)
+		STDOUT.puts( s.join(' ').word_wrap)
+	end
+
 	DEFAULTS = {
 		:root => { :open => true },
 		:room => { :open => true },
@@ -114,8 +118,13 @@ class Node < OpenStruct
 			puts base
 		end
 
-	
-
+	def short_description
+		if respond_to?(:short_desc)
+			short_desc
+		else
+			tag.to_s
+		end
+	end
 
 	def hidden?
 		if parent.tag == :root
@@ -127,7 +136,7 @@ class Node < OpenStruct
 		end
 	end
 
-	def script(thing, to, check=true)
+	def script(key, *args)
 		if respond_to?("script_#{key}")
 			return eval(self.send("script_#{key}"))
 		else
@@ -167,6 +176,8 @@ class Node < OpenStruct
 			find_by_tag(thing)
 		when String
 			find_by_string(thing)
+		when Array
+			find_by_string(thing.join(' '))
 		when Node
 			thing
 		end
@@ -232,6 +243,7 @@ class Node < OpenStruct
 	end
 end
 
+
 class Player < Node
 	def command(words)
 		verb, *words = words.split(' ')
@@ -269,7 +281,6 @@ class Player < Node
 	end
 
 	def do_take(*thing)
-		get_root.move(thing.join(' '), self)
 		thing = get_room.find(thing)
 		return if thing.nil?
 
@@ -280,7 +291,7 @@ class Player < Node
 	alias_method :do_get, :do_take
 
 	def do_drop(*thing)
-		move(thing.join(' '), get_room)
+		move(thing, get_room)
 	end
 
 	def open_close(thing, state)
@@ -303,7 +314,18 @@ class Player < Node
 	end
 
 	def do_look(*a)
-		puts "You are in #{get_room.tag}"
+		get_room.tap do |r|
+			r.dexcribed = false
+			r.describe
+		end
+	end
+
+	def do_examine(*thing)
+		item = get_room.find(thing)
+		return if item.nil?
+
+		item.described = false
+		item.describe
 	end
 
 	def do_inventory(*a)
@@ -327,7 +349,7 @@ class Player < Node
 		item_words, _, cont_words = words.join(' ').split(prep_regex)
 
 		if cont_words.nil?
-			puts "You want to  put that where?"
+			puts "You want to put that where?"
 			return
 		end
 
@@ -345,7 +367,7 @@ class Player < Node
 		prepositions = %w{ in on with }
 		prepositions.map!{|p| "#{p}"}
 
-		prep_regex=Regexp.new("(#{prepositions.join(|)})")
+		prep_regex=Regexp.new("(#{prepositions.join('|')})")
 		item1_words, _, item2_words = words.join(' ').split(prep_regex)
 
 		if item2_words.nil?
@@ -359,7 +381,11 @@ class Player < Node
 
 		item1.script('use', item2)
 	end
-end
+
+	def do_debug(*a)
+		STDOUT.puts get_root
+	end
+
 
 
 	def play
@@ -373,22 +399,16 @@ end
 
 class String
 	def word_wrap(width=80)
-		#replace newlines with spaces
 		gsub(/\n/, '').
 
-		#Replace double space with single space
-		gsub(/\s+, '').
+		gsub(/\s+/, '').
 
-		#kill leading whitespace
 		gsub(/^\s+/, '').
 
-		#replace punctuation with punctuation plus 2 spaces
-		gsub(?([\.\!\?]+)(\s+)?/, '\1 ').
+		gsub(/([\.\!\?]+)(\s+)?/, '\1 ').
 
-		#Same thing but commas and one space
 		gsub(/\, (\s+)?/, ', ').
 
-		#string plus newlines
 		gsub(%r[(.{1, #{width}})(?:\s|\z)], "\\1\n")
 	end
 end

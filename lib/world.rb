@@ -1,3 +1,5 @@
+require "yaml"
+
 $: << '.'
 require "node"
 
@@ -5,6 +7,17 @@ root = Node.root do
 	room(:living_room) do
 		self.exit_north = :kitchen
 		self.exit_east = :hall
+
+		self.desc <<-DESC
+			You are in a dark living room. Heavy drapes cover
+			the windows, the only light comes from a dim lamp in
+			the corner. The only furniture in the room is a
+			well-used couch, covered in blankers and pillows.
+			DESC
+
+		self.short_desc = <<-DESC
+			You are in a dark messy living room.
+			DESC
 
 		item(:cat, 'cat', 'sleeping', 'fuzzy') do
 			self.script_take = <<-SCRIPT
@@ -15,18 +28,33 @@ root = Node.root do
 
 			puts "The can't won't let you pick it up"
 			return false
-			SCRIPT
+		   SCRIPT
+
 			self.script_control = <<-SCRIPT
-			puts "The cat sits upright, awaiting your command)"
+				puts "The cat sits upright, awaiting your command)"
 				return true
 			SCRIPT
+
+			self.desc = <<-DESC
+				A pumpkin-colored long-haired cat. He is well-groomed and
+				certainly a house cat and seems perfectly content to sleeping
+				the day away on the couch.
+			DESC
+
+			self.short_desc = <<-DESC
+				a pumpkin colored long-haired cat.
+			DESC
+
+			self.presence = <<-pres
+				A cat dozes lazily here.
+				PRES
 
 			item(:dead_mouse, 'mouse', 'dead', 'eaten')
 		end
 
 		item(:remote_control, 'remote', 'control') do
 		self.script_accept = <<-SCRIPT
-			if [:new_batteries, :old_batteries].include?(args[0].tag) &&
+			if [:new_batteries, :dead_batteries].include?(args[0].tag) &&
 				children.empty?
 				return true
 			elsif !children.empty?
@@ -38,7 +66,7 @@ root = Node.root do
 			end
 			SCRIPT
 
-			self.script_use = <<-SCRIPT
+		self.script_use = <<-SCRIPT
 			if !find(:new_batteries)
 				puts "The remote doesn't seem to work"
 				return
@@ -65,7 +93,7 @@ root = Node.root do
 		end
 
 		item(:drawer, 'drawer', 'kitchen') do
-			self.open = true
+			self.open = false
 
 			item(:new_batteries, 'batteries', 'new', 'AA')
 		end
@@ -81,27 +109,25 @@ root = Node.root do
 	end
 end
 
-root.find(:player).tap do|pl|
-	pl.command("go south")
+loop do
+	player = root.find(:player)
+	player.get_room.describe
 
-	pl.command("take remote")
+	print "What now?"
+	input = gets.chomp
+	verb = input.split(' ').first
 
-	pl.command("take dead mouse")
-
-	pl.command("drop remote")
-
-	pl. command("go north")
-
-	pl.command("take new batteries")
-
-	pl.command("open drawer")
-	pl.command("take new batteries")
-	pl.command("close drawer")
-
-	pl.command("look")
-	pl.command("inventory")
+	case verb
+	when "load"
+		root = Node.load
+		puts "Loaded"
+	when "save"
+		Node.save(root)
+		puts "Saved"
+	when "quit"
+		puts "Goodbye!"
+		exit
+	else
+		player.command(input)
+	end
 end
-
-	puts root
-	root.find(:player).play
-
