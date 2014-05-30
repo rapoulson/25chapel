@@ -8,12 +8,12 @@ root = Node.root do
 		self.exit_north = :kitchen
 		self.exit_east = :hall
 
-		self.desc <<-DESC
+		self.desc = <<-DESC
 			You are in a dark living room. Heavy drapes cover
 			the windows, the only light comes from a dim lamp in
 			the corner. The only furniture in the room is a
 			well-used couch, covered in blankers and pillows.
-			DESC
+		DESC
 
 		self.short_desc = <<-DESC
 			You are in a dark messy living room.
@@ -45,7 +45,7 @@ root = Node.root do
 				a pumpkin colored long-haired cat.
 			DESC
 
-			self.presence = <<-pres
+			self.presence = <<-PRES
 				A cat dozes lazily here.
 				PRES
 
